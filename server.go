@@ -61,7 +61,6 @@ func (s *Server) Run() error {
 		for range ticker.C {
 			s.accounts.Range(func(key string, acc Account) bool {
 				acc.reset()
-				s.accounts.Store(key, acc)
 				return true
 			})
 		}
@@ -157,8 +156,10 @@ func (s *Server) handleUDPMessage(conn *net.UDPConn, addr *net.UDPAddr, data []b
 
 	// locate the account in the sync map (or create a new one if it's not there already)
 	acc, ok := s.accounts.Load(message.accountName)
+
 	// get a decision on whether there is enough Value left in the bucket to decrement it by "inc"
 	accepted = acc.Buckets[message.class].dec(message.inc, message.capacity)
+
 	// if this is a new account, it needs storing in the map
 	if !ok {
 		s.accounts.Store(message.accountName, acc)
