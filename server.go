@@ -155,10 +155,14 @@ func (s *Server) handleUDPMessage(conn *net.UDPConn, addr *net.UDPAddr, data []b
 		return
 	}
 
-	// locate the account in the sync map and get a decision (accepted)
-	acc, _ := s.accounts.Load(message.accountName)
+	// locate the account in the sync map (or create a new one if it's not there already)
+	acc, ok := s.accounts.Load(message.accountName)
+	// get a decision on whether there is enough Value left in the bucket to decrement it by "inc"
 	accepted = acc.Buckets[message.class].dec(message.inc, message.capacity)
-	s.accounts.Store(message.accountName, acc)
+	// if this is a new account, it needs storing in the map
+	if !ok {
+		s.accounts.Store(message.accountName, acc)
+	}
 
 	// jsonStr, _ := json.Marshal(acc)
 	// log.Printf("%v\n", string(jsonStr))

@@ -1,6 +1,9 @@
 package main
 
-import "sync"
+import (
+	"log"
+	"sync"
+)
 
 // Bucket is a "leaky bucket" it has a Capacity (it's maximum size) and a Value (
 // it's current size). It is "reset" periodically, which puts the Value equal to the Capacity.
@@ -21,6 +24,9 @@ type Bucket struct {
 // - "Value" is 1 and "by" is 2. Value stays set to 1 and return is false
 // The bucket size is passed in and set every time.
 func (b *Bucket) dec(by int, capacity int) bool {
+	defer func() {
+		log.Printf("by: %v Value: %v Capacity: %v\n", by, b.Value, b.Capacity)
+	}()
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if by <= 0 || capacity <= 0 {
