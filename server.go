@@ -85,7 +85,7 @@ func (s *Server) Run() error {
 func (s *Server) deny(conn *net.UDPConn, addr *net.UDPAddr) {
 	_, err := conn.WriteToUDP([]byte("d"), addr)
 	if err != nil {
-		log.Printf("failed to send deny respose back to %v\n", addr)
+		log.Printf("failed to send deny response back to %v\n", addr)
 	}
 }
 
@@ -93,7 +93,7 @@ func (s *Server) deny(conn *net.UDPConn, addr *net.UDPAddr) {
 func (s *Server) permit(conn *net.UDPConn, addr *net.UDPAddr) {
 	_, err := conn.WriteToUDP([]byte("p"), addr)
 	if err != nil {
-		log.Printf("failed to send deny respose back to %v\n", addr)
+		log.Printf("failed to send deny response back to %v\n", addr)
 	}
 }
 
