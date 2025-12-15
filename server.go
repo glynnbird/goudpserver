@@ -83,12 +83,18 @@ func (s *Server) Run() error {
 
 // deny sends a "d" (deny) message back to the caller
 func (s *Server) deny(conn *net.UDPConn, addr *net.UDPAddr) {
-	conn.WriteToUDP([]byte("d"), addr)
+	_, err := conn.WriteToUDP([]byte("d"), addr)
+	if err != nil {
+		log.Printf("failed to send deny respose back to %v\n", addr)
+	}
 }
 
 // permit sends a "p" (permit) message back to the caller
 func (s *Server) permit(conn *net.UDPConn, addr *net.UDPAddr) {
-	conn.WriteToUDP([]byte("p"), addr)
+	_, err := conn.WriteToUDP([]byte("p"), addr)
+	if err != nil {
+		log.Printf("failed to send deny respose back to %v\n", addr)
+	}
 }
 
 // parseMessage takes an incoming UDP message string and parses it looking for
@@ -119,14 +125,14 @@ func (s *Server) parseMessage(str string) (*Message, error) {
 		return nil, errors.New("cannot convert capacity from string to integer")
 	}
 	if capacity <= 0 {
-		return nil, errors.New("capacity must by positive")
+		return nil, errors.New("capacity must be positive")
 	}
 	inc, err := strconv.Atoi(incrementStr)
 	if err != nil {
 		return nil, errors.New("cannot convert increment from string to integer")
 	}
 	if inc <= 0 {
-		return nil, errors.New("inc must by positive")
+		return nil, errors.New("inc must be positive")
 	}
 	message := Message{
 		accountName: accountName,
@@ -140,9 +146,12 @@ func (s *Server) parseMessage(str string) (*Message, error) {
 
 // handle is run as a goroutine to handle a single incoming message
 func (s *Server) handleUDPMessage(conn *net.UDPConn, addr *net.UDPAddr, data []byte) {
+	//  trim \n
 	accepted := false
 	str := strings.TrimSpace(string(data))
 	var err error
+
+	// deferred logging
 	defer func() {
 		log.Printf("addr: %s message: %s accepted: %v err: %v", addr, str, accepted, err)
 	}()
@@ -160,13 +169,12 @@ func (s *Server) handleUDPMessage(conn *net.UDPConn, addr *net.UDPAddr, data []b
 	// get a decision on whether there is enough Value left in the bucket to decrement it by "inc"
 	accepted = acc.Buckets[message.class].dec(message.inc, message.capacity)
 
-	// if this is a new account, it needs storing in the map
+	// if this is a new account, it needs storing in the sync map
 	if !ok {
 		s.accounts.Store(message.accountName, acc)
 	}
 
-	// jsonStr, _ := json.Marshal(acc)
-	// log.Printf("%v\n", string(jsonStr))
+	// permit or deny reply
 	if accepted {
 		s.permit(conn, addr)
 	} else {
