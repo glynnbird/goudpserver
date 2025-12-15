@@ -8,12 +8,12 @@ type AccountMap struct {
 	m sync.Map
 }
 
-// Store wraps arount sync.Map's Store but only accepts string/Account pairs
+// Store wraps around sync.Map's Store but only accepts string/Account pairs
 func (am *AccountMap) Store(key string, value Account) {
 	am.m.Store(key, value)
 }
 
-// Load wraps arount sync.Map's Load but only accepts string parameters and
+// Load wraps around sync.Map's Load but only accepts string parameters and
 // returns an Account
 func (am *AccountMap) Load(key string) (Account, bool) {
 	v, ok := am.m.Load(key)
@@ -24,7 +24,7 @@ func (am *AccountMap) Load(key string) (Account, bool) {
 	return s, ok
 }
 
-// Delete wraps around sync.Map's Delete but only acceptes string keys
+// Delete wraps around sync.Map's Delete but only accepts string keys
 func (am *AccountMap) Delete(key string) {
 	am.m.Delete(key)
 }
