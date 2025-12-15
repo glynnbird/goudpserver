@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -10,6 +11,14 @@ import (
 )
 
 const refreshInterval = 1 * time.Second
+
+// Message is a parsed incoming message
+type Message struct {
+	accountName string
+	class       string
+	capacity    int
+	inc         int
+}
 
 // Server is a data structure that holds information about our UDP server, including which
 // port it listens on and a map of Account structs, one for each user account
@@ -78,36 +87,55 @@ func (s *Server) deny(conn *net.UDPConn, addr *net.UDPAddr) {
 	conn.WriteToUDP([]byte("d"), addr)
 }
 
-// deny sends a "p" (permit) message back to the caller
+// permit sends a "p" (permit) message back to the caller
 func (s *Server) permit(conn *net.UDPConn, addr *net.UDPAddr) {
 	conn.WriteToUDP([]byte("p"), addr)
 }
 
-func (s *Server) parseMessage(str string) (account string, class string, capacity int, inc int, ok bool) {
+// parseMessage takes an incoming UDP message string and parses it looking for
+// <accountName>,<class>,<capacity>,<inc>\n
+// where accountName that uniquely identifies each client, class is l/w/q,
+// capacity is the bucket capacity for that class/accountName and inc is
+// the amount that is being asked to be removed from the bucket value.
+func (s *Server) parseMessage(str string) (*Message, error) {
 	// parse the incoming string - account,class,max_per_second,inc_by
 	bits := strings.Split(str, ",")
 	if len(bits) != 4 {
-		return
+		return nil, errors.New("message string must contain 4 strings separated by commas")
 	}
 
 	// sanity checks
-	account = bits[0]
-	class = bits[1]
+	accountName := bits[0]
+	class := bits[1]
 	capacityStr := bits[2]
 	incrementStr := bits[3]
-	if len(account) == 0 || len(class) == 0 || len(capacityStr) == 0 ||
-		(class != "l" && class != "w" && class != "q") {
-		return "", "", 0, 0, false
+	if len(accountName) == 0 || len(class) == 0 || len(capacityStr) == 0 || len(incrementStr) == 0 {
+		return nil, errors.New("missing account/class/capacity/inc strings")
+	}
+	if class != "l" && class != "w" && class != "q" {
+		return nil, errors.New("class must be l/w/q")
 	}
 	capacity, err := strconv.Atoi(capacityStr)
 	if err != nil {
-		return "", "", 0, 0, false
+		return nil, errors.New("cannot convert capacity from string to integer")
 	}
-	inc, err = strconv.Atoi(incrementStr)
-	if err != nil || inc <= 0 {
-		return "", "", 0, 0, false
+	if capacity <= 0 {
+		return nil, errors.New("capacity must by positive")
 	}
-	return account, class, capacity, inc, true
+	inc, err := strconv.Atoi(incrementStr)
+	if err != nil {
+		return nil, errors.New("cannot convert increment from string to integer")
+	}
+	if inc <= 0 {
+		return nil, errors.New("inc must by positive")
+	}
+	message := Message{
+		accountName: accountName,
+		class:       class,
+		capacity:    capacity,
+		inc:         inc,
+	}
+	return &message, nil
 
 }
 
@@ -115,27 +143,22 @@ func (s *Server) parseMessage(str string) (account string, class string, capacit
 func (s *Server) handleUDPMessage(conn *net.UDPConn, addr *net.UDPAddr, data []byte) {
 	accepted := false
 	str := strings.TrimSpace(string(data))
+	var err error
 	defer func() {
-		log.Printf("addr: %s message: %s accepted: %v", addr, str, accepted)
+		log.Printf("addr: %s message: %s accepted: %v err: %v", addr, str, accepted, err)
 	}()
 
-	account, class, capacity, inc, ok := s.parseMessage(str)
-	if !ok {
+	// parse the incoming message
+	message, err := s.parseMessage(str)
+	if err != nil {
 		s.deny(conn, addr)
 		return
 	}
 
-	// check the map
-	acc, _ := s.accounts.Load(account)
-	switch class {
-	case "l":
-		accepted = acc.Lookups.dec(inc, capacity)
-	case "w":
-		accepted = acc.Writes.dec(inc, capacity)
-	case "q":
-		accepted = acc.Queries.dec(inc, capacity)
-	}
-	s.accounts.Store(account, acc)
+	// locate the account in the sync map and get a decision (accepted)
+	acc, _ := s.accounts.Load(message.accountName)
+	accepted = acc.Buckets[message.class].dec(message.inc, message.capacity)
+	s.accounts.Store(message.accountName, acc)
 
 	// jsonStr, _ := json.Marshal(acc)
 	// log.Printf("%v\n", string(jsonStr))
@@ -144,5 +167,4 @@ func (s *Server) handleUDPMessage(conn *net.UDPConn, addr *net.UDPAddr, data []b
 	} else {
 		s.deny(conn, addr)
 	}
-
 }
