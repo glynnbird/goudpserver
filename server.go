@@ -17,6 +17,11 @@ type Server struct {
 	accounts *AccountMap
 }
 
+type ReplyHandler struct {
+	permit func()
+	deny   func()
+}
+
 // NewServer creates a new server struct, given the port
 func NewServer(port int) *Server {
 	accountsMap := AccountMap{}
@@ -67,42 +72,43 @@ func (s *Server) Run() error {
 
 		// clone buffer and send to goroutine to handle the message
 		data := append([]byte(nil), buffer[:n]...)
-		go s.handleUDPMessage(conn, addr, data)
-	}
-}
+		go func() {
+			replyer := ReplyHandler{
+				permit: func() {
+					_, err := conn.WriteToUDP([]byte("p"), addr)
+					if err != nil {
+						log.Printf("failed to send deny response back to %v\n", addr)
+					}
+				},
+				deny: func() {
+					_, err := conn.WriteToUDP([]byte("d"), addr)
+					if err != nil {
+						log.Printf("failed to send deny response back to %v\n", addr)
+					}
+				},
+			}
 
-// deny sends a "d" (deny) message back to the caller
-func (s *Server) deny(conn *net.UDPConn, addr *net.UDPAddr) {
-	_, err := conn.WriteToUDP([]byte("d"), addr)
-	if err != nil {
-		log.Printf("failed to send deny response back to %v\n", addr)
-	}
-}
-
-// permit sends a "p" (permit) message back to the caller
-func (s *Server) permit(conn *net.UDPConn, addr *net.UDPAddr) {
-	_, err := conn.WriteToUDP([]byte("p"), addr)
-	if err != nil {
-		log.Printf("failed to send deny response back to %v\n", addr)
+			s.handleUDPMessage(strings.TrimSpace(string(data)), replyer)
+		}()
 	}
 }
 
 // handle is run as a goroutine to handle a single incoming message
-func (s *Server) handleUDPMessage(conn *net.UDPConn, addr *net.UDPAddr, data []byte) {
+func (s *Server) handleUDPMessage(str string, replyer ReplyHandler) {
 	//  trim \n
-	accepted := false
-	str := strings.TrimSpace(string(data))
+	permitted := false
+	var bucket *Bucket
 	var err error
 
 	// deferred logging
 	defer func() {
-		log.Printf("addr: %s message: %s accepted: %v err: %v", addr, str, accepted, err)
+		log.Printf("message: %s permitted: %v bucket: %v err: %v", str, permitted, bucket.toString(), err)
 	}()
 
 	// parse the incoming message
 	message, err := parseMessage(str)
 	if err != nil {
-		s.deny(conn, addr)
+		replyer.deny()
 		return
 	}
 
@@ -110,7 +116,9 @@ func (s *Server) handleUDPMessage(conn *net.UDPConn, addr *net.UDPAddr, data []b
 	acc, ok := s.accounts.Load(message.accountName)
 
 	// get a decision on whether there is enough Value left in the bucket to decrement it by "inc"
-	accepted = acc.Buckets[message.class].dec(message.inc, message.capacity)
+
+	permitted = acc.Buckets[message.class].dec(message.inc, message.capacity)
+	bucket = acc.Buckets[message.class]
 
 	// if this is a new account, it needs storing in the sync map
 	if !ok {
@@ -118,9 +126,9 @@ func (s *Server) handleUDPMessage(conn *net.UDPConn, addr *net.UDPAddr, data []b
 	}
 
 	// permit or deny reply
-	if accepted {
-		s.permit(conn, addr)
+	if permitted {
+		replyer.permit()
 	} else {
-		s.deny(conn, addr)
+		replyer.deny()
 	}
 }

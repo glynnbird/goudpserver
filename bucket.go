@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"sync"
 )
 
@@ -32,15 +33,15 @@ func (b *Bucket) dec(by int, capacity int) bool {
 		b.Value = capacity
 	}
 	b.Capacity = capacity
-	if b.Value == 0 {
-		return false
-	}
+
+	// if there is sufficient Value left in the bucket
 	if b.Value >= by {
+		// remove Value from the bucket and indicated success
 		b.Value -= by
 		return true
-	} else {
-		return false
 	}
+	// otherwise fail
+	return false
 }
 
 // reset sets the Value of the bucket to its Capacity
@@ -48,4 +49,12 @@ func (b *Bucket) reset() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.Value = b.Capacity
+}
+
+func (b *Bucket) toString() string {
+	bytes, err := json.Marshal(b)
+	if err != nil {
+		return ""
+	}
+	return string(bytes)
 }
