@@ -13,7 +13,8 @@ const refreshInterval = 1 * time.Second
 // port it listens on and a map of Account structs, one for each user account
 type Server struct {
 	port     int
-	accounts *AccountMap
+	accounts map[string]Account
+	mu       sync.RWMutex
 }
 
 // a ReplyHandler is a struct which has two functions that reply permit or deny back to the
@@ -26,10 +27,10 @@ type ReplyHandler struct {
 
 // NewServer creates a new server struct, given the port
 func NewServer(port int) *Server {
-	accountsMap := AccountMap{}
+	accountsMap := make(map[string]Account)
 	server := Server{
 		port:     port,
-		accounts: &accountsMap,
+		accounts: accountsMap,
 	}
 	return &server
 }
@@ -42,35 +43,37 @@ func (s *Server) Run() {
 	var wg sync.WaitGroup
 
 	// reset the counters every second
-	wg.Go(func() {
+	go func() {
 		ticker := time.NewTicker(refreshInterval)
 		defer ticker.Stop()
 
 		for range ticker.C {
-			s.accounts.Range(func(key string, acc Account) bool {
+			s.mu.RLock()
+			for _, acc := range s.accounts {
 				acc.reset()
-				return true
-			})
+			}
+			s.mu.RUnlock()
 		}
-	})
+	}()
 
 	// run the UDP server
-	wg.Go(func() {
+	go func() {
 		err := s.runUDPServer()
 		if err != nil {
 			fmt.Println(err)
 		}
-	})
+	}()
 
 	// run the TCP server
-	wg.Go(func() {
+	go func() {
 		err := s.runTCPServer()
 		if err != nil {
 			fmt.Println(err)
 		}
-	})
+	}()
 
 	// wait for all goroutines to finish
+	wg.Add(3)
 	wg.Wait()
 
 }
@@ -94,14 +97,22 @@ func (s *Server) handleMessage(protocol string, str string, replyer ReplyHandler
 	}
 
 	// locate the account in the sync map (or create a new one if it's not there already)
-	acc, ok := s.accounts.Load(message.accountName)
+	s.mu.RLock()
+	acc, ok := s.accounts[message.accountName]
+	s.mu.RUnlock()
+	// if the key isn't in our map, create a new Account
+	if !ok {
+		acc = *NewAccount(message.accountName)
+	}
 
 	// get a decision on whether there is enough Value left in the bucket to decrement it by "inc"
 	permitted = acc.Buckets[message.class].dec(message.inc, message.capacity)
 
 	// if this is a new account, it needs storing in the sync map
 	if !ok {
-		s.accounts.Store(message.accountName, acc)
+		s.mu.Lock()
+		s.accounts[message.accountName] = acc
+		s.mu.Unlock()
 	}
 
 	// permit or deny reply
