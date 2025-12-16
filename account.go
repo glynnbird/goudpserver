@@ -17,7 +17,7 @@ type Account struct {
 }
 
 // NewAccount creates a new account given the new account's name.
-func NewAccount(name string) *Account {
+func NewAccount(name string) Account {
 	buckets := map[string]*Bucket{}
 	for _, v := range classTypes {
 		bucket := Bucket{}
@@ -27,7 +27,7 @@ func NewAccount(name string) *Account {
 		Name:    name,
 		Buckets: buckets,
 	}
-	return &acc
+	return acc
 }
 
 // reset sets each leaky bucket back to its full capacity
