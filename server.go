@@ -107,9 +107,12 @@ func (s *Server) handleMessage(protocol string, str string, replyer ReplyHandler
 	if !ok {
 		s.mu.Lock()
 		// this is to solve a race between two goroutines trying to create the same map key
-		if _, exists := s.accounts[message.accountName]; !exists {
+		if otherAcc, exists := s.accounts[message.accountName]; !exists {
 			acc = NewAccount(message.accountName)
 			s.accounts[message.accountName] = acc
+		} else {
+			// the other goroutine beat us to it
+			acc = otherAcc
 		}
 		s.mu.Unlock()
 	}
