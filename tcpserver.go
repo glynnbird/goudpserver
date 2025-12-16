@@ -11,6 +11,8 @@ import (
 // runTCPServer executes a TCP server. It starts listening on the specified port,
 // dispatching incoming messages to its own goroutine.
 func (s *Server) runTCPServer() error {
+	defer s.wg.Done()
+
 	// listen on the server's port
 	portStr := fmt.Sprintf(":%v", s.port)
 	ln, err := net.Listen("tcp", portStr)

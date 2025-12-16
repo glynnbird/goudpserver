@@ -15,6 +15,7 @@ type Server struct {
 	port     int
 	accounts map[string]Account
 	mu       sync.RWMutex
+	wg       sync.WaitGroup
 }
 
 // a ReplyHandler is a struct which has two functions that reply permit or deny back to the
@@ -40,10 +41,9 @@ func NewServer(port int) *Server {
 // resets each Account's buckets periodically.
 func (s *Server) Run() {
 
-	var wg sync.WaitGroup
-
 	// reset the counters every second
 	go func() {
+		defer s.wg.Done()
 		ticker := time.NewTicker(refreshInterval)
 		defer ticker.Stop()
 
@@ -73,8 +73,8 @@ func (s *Server) Run() {
 	}()
 
 	// wait for all goroutines to finish
-	wg.Add(3)
-	wg.Wait()
+	s.wg.Add(3)
+	s.wg.Wait()
 
 }
 

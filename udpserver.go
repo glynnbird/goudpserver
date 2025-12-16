@@ -10,6 +10,8 @@ import (
 // runUDPServer executes a UDP server. It starts listening on the specified port,
 // dispatching incoming messages to its own goroutine.
 func (s *Server) runUDPServer() error {
+	defer s.wg.Done()
+
 	// listen on the server's port
 	portStr := fmt.Sprintf(":%v", s.port)
 	address, err := net.ResolveUDPAddr("udp", portStr)
