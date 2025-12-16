@@ -5,7 +5,7 @@ package main
 //	l - lookups
 //	w - writes
 //	q - queries
-var classTypes = []string{"l", "r", "q"}
+var classTypes = []string{"l", "w", "q"}
 
 // Account is a data structure that stores everything we need to know
 // about a user account: its name and three leaky buckets for lookups,

@@ -80,7 +80,7 @@ func (s *Server) Run() error {
 				permit: func() {
 					_, err := conn.WriteToUDP([]byte("p"), addr)
 					if err != nil {
-						log.Printf("failed to send permi5 response back to %v\n", addr)
+						log.Printf("failed to send permit response back to %v\n", addr)
 					}
 				},
 				deny: func() {
