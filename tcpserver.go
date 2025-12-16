@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"time"
 )
 
 // runTCPServer executes a TCP server. It starts listening on the specified port,
@@ -19,28 +20,37 @@ func (s *Server) runTCPServer() error {
 	defer ln.Close()
 
 	for {
+		// accept TCP connection
 		conn, err := ln.Accept()
 		if err != nil {
 			log.Println("TCP accept error:", err)
 			continue
 		}
 
+		// one go routine per connection
 		go func() {
 			defer conn.Close()
+			// time out the socket after 30 seconds of inactivity
+			idleTimeout := 30 * time.Second
+			conn.SetReadDeadline(time.Now().Add(idleTimeout))
+
+			// create line reader
 			reader := bufio.NewScanner(conn)
 			reader.Buffer(make([]byte, 0, 1024), 1024)
+
+			// read each line
 			for reader.Scan() {
 				line := reader.Text()
 				// gives a means of replying back to the caller to handleMessage
 				replyHandler := ReplyHandler{
 					permit: func() {
-						_, err := conn.Write([]byte("p"))
+						_, err := conn.Write([]byte("p\n"))
 						if err != nil {
 							log.Printf("TCP failed to send permit response\n")
 						}
 					},
 					deny: func() {
-						_, err := conn.Write([]byte("d"))
+						_, err := conn.Write([]byte("d\n"))
 						if err != nil {
 							log.Printf("TCP failed to send deny response back to \n")
 						}
