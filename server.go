@@ -105,9 +105,12 @@ func (s *Server) handleMessage(protocol string, str string, replyer ReplyHandler
 	s.mu.RUnlock()
 	// if the key isn't in our map, create a new Account
 	if !ok {
-		acc = *NewAccount(message.accountName)
 		s.mu.Lock()
-		s.accounts[message.accountName] = acc
+		// this is to solve a race between two goroutines trying to create the same map key
+		if _, exists := s.accounts[message.accountName]; !exists {
+			acc = *NewAccount(message.accountName)
+			s.accounts[message.accountName] = acc
+		}
 		s.mu.Unlock()
 	}
 
