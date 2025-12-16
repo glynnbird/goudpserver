@@ -3,8 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-	"net"
-	"strings"
+	"sync"
 	"time"
 )
 
@@ -38,21 +37,12 @@ func NewServer(port int) *Server {
 // Run executes the server. It starts listening on the specified port,
 // dispatching incoming messages to its own goroutine. Another goroutine
 // resets each Account's buckets periodically.
-func (s *Server) Run() error {
-	// listen on the server's port
-	portStr := fmt.Sprintf(":%v", s.port)
-	address, err := net.ResolveUDPAddr("udp", portStr)
-	if err != nil {
-		return err
-	}
-	conn, err := net.ListenUDP("udp", address)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
+func (s *Server) Run() {
+
+	var wg sync.WaitGroup
 
 	// reset the counters every second
-	go func() {
+	wg.Go(func() {
 		ticker := time.NewTicker(refreshInterval)
 		defer ticker.Stop()
 
@@ -62,49 +52,38 @@ func (s *Server) Run() error {
 				return true
 			})
 		}
-	}()
+	})
 
-	// wait for messages of up to 128 bytes
-	buffer := make([]byte, 128)
-	for {
-		n, addr, err := conn.ReadFromUDP(buffer)
+	// run the UDP server
+	wg.Go(func() {
+		err := s.runUDPServer()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			continue
+			fmt.Println(err)
 		}
+	})
 
-		// clone buffer and send to goroutine to handle the message
-		data := append([]byte(nil), buffer[:n]...)
-		go func() {
-			replyer := ReplyHandler{
-				permit: func() {
-					_, err := conn.WriteToUDP([]byte("p"), addr)
-					if err != nil {
-						log.Printf("failed to send permit response back to %v\n", addr)
-					}
-				},
-				deny: func() {
-					_, err := conn.WriteToUDP([]byte("d"), addr)
-					if err != nil {
-						log.Printf("failed to send deny response back to %v\n", addr)
-					}
-				},
-			}
+	// run the TCP server
+	wg.Go(func() {
+		err := s.runTCPServer()
+		if err != nil {
+			fmt.Println(err)
+		}
+	})
 
-			s.handleUDPMessage(strings.TrimSpace(string(data)), replyer)
-		}()
-	}
+	// wait for all goroutines to finish
+	wg.Wait()
+
 }
 
 // handle is run as a goroutine to handle a single incoming message
-func (s *Server) handleUDPMessage(str string, replyer ReplyHandler) {
+func (s *Server) handleMessage(protocol string, str string, replyer ReplyHandler) {
 	//  trim \n
 	permitted := false
 	var err error
 
 	// deferred logging
 	defer func() {
-		log.Printf("message: %s permitted: %v err: %v", str, permitted, err)
+		log.Printf("protocol: %s message: %s permitted: %v err: %v", protocol, str, permitted, err)
 	}()
 
 	// parse the incoming message

@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-const defaultPort string = "8080"
+const defaultPort string = "8081"
 
 func main() {
 
@@ -27,9 +27,6 @@ func main() {
 
 	// run the server
 	server := NewServer(port)
-	err = server.Run()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	server.Run()
+
 }
