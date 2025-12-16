@@ -88,6 +88,7 @@ func (s *Server) handleMessage(protocol string, str string, replyer ReplyHandler
 	// parse the incoming message
 	message, err := parseMessage(str)
 	if err != nil {
+		str = "invalid"
 		replyer.deny()
 		return
 	}

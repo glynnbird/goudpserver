@@ -49,7 +49,6 @@ func (s *Server) runTCPServer() error {
 
 				// parse the message and reply back to the caller
 				s.handleMessage("TCP", line, replyHandler)
-				return
 			}
 		}()
 	}
