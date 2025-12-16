@@ -1,5 +1,12 @@
 package main
 
+// there are three classTypes:
+//
+//	l - lookups
+//	w - writes
+//	q - queries
+var classTypes = []string{"l", "r", "q"}
+
 // Account is a data structure that stores everything we need to know
 // about a user account: its name and three leaky buckets for lookups,
 // writes and queries, modelling a rate-limited API that has three
@@ -11,13 +18,10 @@ type Account struct {
 
 // NewAccount creates a new account given the new account's name.
 func NewAccount(name string) *Account {
-	lookups := Bucket{}
-	writes := Bucket{}
-	queries := Bucket{}
-	buckets := map[string]*Bucket{
-		"l": &lookups,
-		"w": &writes,
-		"q": &queries,
+	buckets := map[string]*Bucket{}
+	for _, v := range classTypes {
+		bucket := Bucket{}
+		buckets[v] = &bucket
 	}
 	acc := Account{
 		Name:    name,

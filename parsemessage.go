@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -34,8 +35,8 @@ func parseMessage(str string) (*Message, error) {
 	if len(accountName) == 0 || len(class) == 0 || len(capacityStr) == 0 || len(incrementStr) == 0 {
 		return nil, errors.New("missing account/class/capacity/inc strings")
 	}
-	if class != "l" && class != "w" && class != "q" {
-		return nil, errors.New("class must be l/w/q")
+	if !slices.Contains(classTypes, class) {
+		return nil, errors.New("class must be one of the valid classTypes")
 	}
 	capacity, err := strconv.Atoi(capacityStr)
 	if err != nil {
