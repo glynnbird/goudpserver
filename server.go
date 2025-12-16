@@ -77,7 +77,6 @@ func (s *Server) Run() {
 
 // handle is run as a goroutine to handle a single incoming message
 func (s *Server) handleMessage(protocol string, str string, replyer ReplyHandler) {
-	//  trim \n
 	permitted := false
 	var err error
 
