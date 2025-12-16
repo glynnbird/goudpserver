@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"sync"
 )
 
@@ -49,12 +48,4 @@ func (b *Bucket) reset() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.Value = b.Capacity
-}
-
-func (b *Bucket) toString() string {
-	bytes, err := json.Marshal(b)
-	if err != nil {
-		return ""
-	}
-	return string(bytes)
 }

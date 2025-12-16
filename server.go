@@ -17,6 +17,9 @@ type Server struct {
 	accounts *AccountMap
 }
 
+// a ReplyHandler is a struct which has two functions that reply permit or deny back to the
+// caller. Passing a ReplyHandler to a goroutine saves having to pass connection and address
+// pointers around.
 type ReplyHandler struct {
 	permit func()
 	deny   func()
@@ -97,12 +100,11 @@ func (s *Server) Run() error {
 func (s *Server) handleUDPMessage(str string, replyer ReplyHandler) {
 	//  trim \n
 	permitted := false
-	var bucket *Bucket
 	var err error
 
 	// deferred logging
 	defer func() {
-		log.Printf("message: %s permitted: %v bucket: %v err: %v", str, permitted, bucket.toString(), err)
+		log.Printf("message: %s permitted: %v err: %v", str, permitted, err)
 	}()
 
 	// parse the incoming message
@@ -116,9 +118,7 @@ func (s *Server) handleUDPMessage(str string, replyer ReplyHandler) {
 	acc, ok := s.accounts.Load(message.accountName)
 
 	// get a decision on whether there is enough Value left in the bucket to decrement it by "inc"
-
 	permitted = acc.Buckets[message.class].dec(message.inc, message.capacity)
-	bucket = acc.Buckets[message.class]
 
 	// if this is a new account, it needs storing in the sync map
 	if !ok {
