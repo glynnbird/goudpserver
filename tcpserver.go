@@ -14,11 +14,10 @@ func (s *Server) runTCPServer() error {
 	defer s.wg.Done()
 
 	// listen on the server's port
-	s.wg.Add(1)
 	portStr := fmt.Sprintf(":%v", s.port)
 	ln, err := net.Listen("tcp", portStr)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer ln.Close()
 
@@ -35,7 +34,6 @@ func (s *Server) runTCPServer() error {
 			defer conn.Close()
 			// time out the socket after 30 seconds of inactivity
 			idleTimeout := 30 * time.Second
-			conn.SetReadDeadline(time.Now().Add(idleTimeout))
 
 			// create line reader
 			reader := bufio.NewScanner(conn)
@@ -43,6 +41,7 @@ func (s *Server) runTCPServer() error {
 
 			// read each line
 			for reader.Scan() {
+				conn.SetReadDeadline(time.Now().Add(idleTimeout))
 				line := reader.Text()
 				// gives a means of replying back to the caller to handleMessage
 				replyHandler := ReplyHandler{

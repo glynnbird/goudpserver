@@ -42,10 +42,10 @@ func NewServer(port int) *Server {
 func (s *Server) Run() {
 
 	// reset the counters every second
+	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
 
-		s.wg.Add(1)
 		ticker := time.NewTicker(refreshInterval)
 		defer ticker.Stop()
 
@@ -59,6 +59,7 @@ func (s *Server) Run() {
 	}()
 
 	// run the UDP server
+	s.wg.Add(1)
 	go func() {
 		err := s.runUDPServer()
 		if err != nil {
@@ -67,6 +68,7 @@ func (s *Server) Run() {
 	}()
 
 	// run the TCP server
+	s.wg.Add(1)
 	go func() {
 		err := s.runTCPServer()
 		if err != nil {
@@ -104,17 +106,13 @@ func (s *Server) handleMessage(protocol string, str string, replyer ReplyHandler
 	// if the key isn't in our map, create a new Account
 	if !ok {
 		acc = *NewAccount(message.accountName)
-	}
-
-	// get a decision on whether there is enough Value left in the bucket to decrement it by "inc"
-	permitted = acc.Buckets[message.class].dec(message.inc, message.capacity)
-
-	// if this is a new account, it needs storing in the sync map
-	if !ok {
 		s.mu.Lock()
 		s.accounts[message.accountName] = acc
 		s.mu.Unlock()
 	}
+
+	// get a decision on whether there is enough Value left in the bucket to decrement it by "inc"
+	permitted = acc.Buckets[message.class].dec(message.inc, message.capacity)
 
 	// permit or deny reply
 	if permitted {

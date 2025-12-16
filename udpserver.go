@@ -13,7 +13,6 @@ func (s *Server) runUDPServer() error {
 	defer s.wg.Done()
 
 	// listen on the server's port
-	s.wg.Add(1)
 	portStr := fmt.Sprintf(":%v", s.port)
 	address, err := net.ResolveUDPAddr("udp", portStr)
 	if err != nil {
