@@ -14,6 +14,7 @@ func (s *Server) runTCPServer() error {
 	defer s.wg.Done()
 
 	// listen on the server's port
+	s.wg.Add(1)
 	portStr := fmt.Sprintf(":%v", s.port)
 	ln, err := net.Listen("tcp", portStr)
 	if err != nil {

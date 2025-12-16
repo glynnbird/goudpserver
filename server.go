@@ -44,6 +44,8 @@ func (s *Server) Run() {
 	// reset the counters every second
 	go func() {
 		defer s.wg.Done()
+
+		s.wg.Add(1)
 		ticker := time.NewTicker(refreshInterval)
 		defer ticker.Stop()
 
@@ -73,7 +75,6 @@ func (s *Server) Run() {
 	}()
 
 	// wait for all goroutines to finish
-	s.wg.Add(3)
 	s.wg.Wait()
 
 }
