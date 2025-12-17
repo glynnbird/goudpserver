@@ -6,14 +6,14 @@ import (
 	"sync"
 )
 
-// Bucket is a "leaky bucket" it has a capacity (it's maximum size) and a calue (
+// Bucket is a "leaky bucket" it has a capacity (it's maximum size) and a value (
 // it's current size). It is "reset" periodically, which puts the value equal to the capacity.
 // When the Bucket is "dec"'d the Value is decremented by another number - in this operation,
 // there is an opportunity to first set or subsequently set the bucket's capacity too.
 type Bucket struct {
 	value    int
 	capacity int
-	mu       sync.Mutex
+	mu       sync.RWMutex
 }
 
 // dec decrements the Bucket's value by "by", or returns false if there isn't enough value left.
@@ -69,16 +69,22 @@ func (b *Bucket) set(value int, capacity int) error {
 
 // Value returns the unexported value attribute
 func (b *Bucket) Value() int {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	return b.value
 }
 
 // Capacity returns the unexported capacity attribute
 func (b *Bucket) Capacity() int {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	return b.capacity
 }
 
 // MarshalJSON returns a JSON representation of the bucket's capacity and value
 func (b *Bucket) MarshalJSON() ([]byte, error) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	type Alias struct {
 		Value    int `json:"value"`
 		Capacity int `json:"capacity"`
