@@ -41,7 +41,7 @@ func (s *Server) RunTimer(ctx context.Context) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
-	// loop until the context is done, i.e. the application quite
+	// loop until the context is done, i.e. the application quits
 	for {
 		select {
 		case <-ticker.C:
