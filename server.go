@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// refreshInterval is how frequently the account's buckets are refreshed (topped up)
 const refreshInterval = 1 * time.Second
 
 // Server is a data structure that holds information about our UDP server, including which
@@ -38,10 +39,11 @@ func NewServer(port int) *Server {
 
 // RunTimer resets the accountMap's buckets every second
 func (s *Server) RunTimer(ctx context.Context) {
-	ticker := time.NewTicker(1 * time.Second)
+	defer s.wg.Done()
+	ticker := time.NewTicker(refreshInterval)
 	defer ticker.Stop()
 
-	// loop until the context is done, i.e. the application quits
+	// loop until the context is done, i.e. the application is ready to quit
 	for {
 		select {
 		case <-ticker.C:
@@ -60,8 +62,8 @@ func (s *Server) Run(ctx context.Context) {
 	var udpConn *net.UDPConn
 	var tcpListener net.Listener
 
-	// we have two goroutines to wait for: TCP/UDP servers
-	s.wg.Add(2)
+	// we have three goroutines to wait for: TCP/UDP servers
+	s.wg.Add(3)
 
 	// run the UDP server
 	go func() {
@@ -84,7 +86,10 @@ func (s *Server) Run(ctx context.Context) {
 	}()
 
 	// reset the accounts every second
-	s.RunTimer(ctx)
+	go s.RunTimer(ctx)
+
+	// wait until the app indicates it wants to terminate
+	<-ctx.Done()
 
 	// close the servers
 	slog.Info("Terminating")
@@ -93,6 +98,7 @@ func (s *Server) Run(ctx context.Context) {
 
 	// wait for all goroutines to finish
 	s.wg.Wait()
+	slog.Info("goroutines stopped")
 }
 
 // handle is run as a goroutine to handle a single incoming message

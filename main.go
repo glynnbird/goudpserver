@@ -37,6 +37,5 @@ func main() {
 	// run the server
 	server := NewServer(port)
 	server.Run(ctx)
-	<-ctx.Done()
 	slog.Info("shutdown complete")
 }
