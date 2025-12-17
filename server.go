@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"log/slog"
+	"net"
 	"sync"
 	"time"
 )
@@ -34,43 +36,63 @@ func NewServer(port int) *Server {
 	return &server
 }
 
+// RunTimer resets the accountMap's buckets every second
+func (s *Server) RunTimer(ctx context.Context) {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	// loop until the context is done, i.e. the application quite
+	for {
+		select {
+		case <-ticker.C:
+			s.accounts.Reset()
+			slog.Debug("Reset")
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 // Run executes the server. It starts listening on the specified port,
 // dispatching incoming messages to its own goroutine. Another goroutine
 // resets each Account's buckets periodically.
-func (s *Server) Run() {
+func (s *Server) Run(ctx context.Context) {
+	var udpConn *net.UDPConn
+	var tcpListener net.Listener
 
-	// reset the counters every second
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-		ticker := time.NewTicker(refreshInterval)
-		defer ticker.Stop()
-		for range ticker.C {
-			s.accounts.Reset()
-		}
-	}()
+	// we have two goroutines to wait for: TCP/UDP servers
+	s.wg.Add(2)
 
 	// run the UDP server
-	s.wg.Add(1)
 	go func() {
-		err := s.runUDPServer()
+		var err error
+		udpConn, err = s.listenUDPServer()
 		if err != nil {
-			slog.Error("UDP server error", "error", err)
+			slog.Error("UDP listen error", "error", err)
 		}
+		s.runUDPServer(udpConn)
 	}()
 
 	// run the TCP server
-	s.wg.Add(1)
 	go func() {
-		err := s.runTCPServer()
+		var err error
+		tcpListener, err = s.listenTCPServer()
 		if err != nil {
-			slog.Error("TCP server error", "error", err)
+			slog.Error("TCP listen error", "error", err)
 		}
+		s.runTCPServer(tcpListener)
 	}()
+
+	// reset the accounts every second
+	s.RunTimer(ctx)
+
+	// close the servers
+	slog.Info("Terminating")
+	tcpListener.Close()
+	udpConn.Close()
 
 	// wait for all goroutines to finish
 	s.wg.Wait()
-
 }
 
 // handle is run as a goroutine to handle a single incoming message

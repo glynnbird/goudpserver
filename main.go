@@ -1,14 +1,24 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 )
 
 const defaultPort string = "8081"
 
 func main() {
+
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,    // Ctrl+C
+		syscall.SIGTERM, // kill
+	)
+	defer stop()
 
 	// look for override of default port using environment variable
 	portStr := os.Getenv("PORT")
@@ -26,6 +36,7 @@ func main() {
 
 	// run the server
 	server := NewServer(port)
-	server.Run()
-
+	server.Run(ctx)
+	<-ctx.Done()
+	slog.Info("shutdown complete")
 }
