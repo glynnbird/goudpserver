@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"strings"
 )
@@ -29,7 +29,7 @@ func (s *Server) runUDPServer() error {
 	for {
 		n, addr, err := conn.ReadFromUDP(buffer)
 		if err != nil {
-			fmt.Printf("UDP Error: %v\n", err)
+			slog.Error("UDP read error", "error", err)
 			continue
 		}
 
@@ -41,13 +41,13 @@ func (s *Server) runUDPServer() error {
 				permit: func() {
 					_, err := conn.WriteToUDP([]byte("p"), addr)
 					if err != nil {
-						log.Printf("UDP failed to send permit response back to %v\n", addr)
+						slog.Error("UDP failed to send permit response back", "addr", addr, "error", err)
 					}
 				},
 				deny: func() {
 					_, err := conn.WriteToUDP([]byte("d"), addr)
 					if err != nil {
-						log.Printf("UDP failed to send deny response back to %v\n", addr)
+						slog.Error("UDP failed to send deny response back", "addr", addr, "error", err)
 					}
 				},
 			}

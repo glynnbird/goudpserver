@@ -1,8 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -56,7 +55,7 @@ func (s *Server) Run() {
 	go func() {
 		err := s.runUDPServer()
 		if err != nil {
-			fmt.Println(err)
+			slog.Error("UDP server error", "error", err)
 		}
 	}()
 
@@ -65,7 +64,7 @@ func (s *Server) Run() {
 	go func() {
 		err := s.runTCPServer()
 		if err != nil {
-			fmt.Println(err)
+			slog.Error("TCP server error", "error", err)
 		}
 	}()
 
@@ -81,7 +80,11 @@ func (s *Server) handleMessage(protocol string, str string, replyer ReplyHandler
 
 	// deferred logging
 	defer func() {
-		log.Printf("protocol: %s message: %s permitted: %v err: %v", protocol, str, permitted, err)
+		if err != nil {
+			slog.Error("Error handling message", "protocol", protocol, "error", err)
+		} else {
+			slog.Info("Handled message", "protocol", protocol, "message", str, "permitted", permitted)
+		}
 	}()
 
 	// parse the incoming message

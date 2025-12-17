@@ -1,8 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strconv"
 )
@@ -18,10 +17,10 @@ func main() {
 	}
 
 	// convert to string to integer
-	log.Println("Listening on port", portStr)
+	slog.Info("Listening on", "port", portStr)
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		fmt.Println("Cannot parse PORT environment variable")
+		slog.Error("Cannot parse PORT environment variable as integer", "error", err)
 		os.Exit(1)
 	}
 

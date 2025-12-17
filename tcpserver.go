@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"time"
 )
@@ -25,7 +25,7 @@ func (s *Server) runTCPServer() error {
 		// accept TCP connection
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Println("TCP accept error:", err)
+			slog.Error("TCP accept error", "error", err)
 			continue
 		}
 
@@ -48,13 +48,13 @@ func (s *Server) runTCPServer() error {
 					permit: func() {
 						_, err := conn.Write([]byte("p\n"))
 						if err != nil {
-							log.Printf("TCP failed to send permit response\n")
+							slog.Error("TCP failed to send permit response", "error", err)
 						}
 					},
 					deny: func() {
 						_, err := conn.Write([]byte("d\n"))
 						if err != nil {
-							log.Printf("TCP failed to send deny response\n")
+							slog.Error("TCP failed to send deny response", "error", err)
 						}
 					},
 				}
