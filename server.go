@@ -62,7 +62,7 @@ func (s *Server) Run(ctx context.Context) {
 	var udpConn *net.UDPConn
 	var tcpListener net.Listener
 
-	// we have three goroutines to wait for: TCP/UDP servers
+	// we have three goroutines to wait for: TCP/UDP servers and the reset tiner
 	s.wg.Add(3)
 
 	// run the UDP server
