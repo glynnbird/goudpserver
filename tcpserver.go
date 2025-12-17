@@ -54,7 +54,7 @@ func (s *Server) runTCPServer() error {
 					deny: func() {
 						_, err := conn.Write([]byte("d\n"))
 						if err != nil {
-							log.Printf("TCP failed to send deny response back to \n")
+							log.Printf("TCP failed to send deny response\n")
 						}
 					},
 				}
