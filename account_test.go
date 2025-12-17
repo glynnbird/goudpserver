@@ -40,6 +40,6 @@ func Test_account_reset(t *testing.T) {
 		t.Errorf("Expected w bucket to have a value %v, but got %v", 50, acc.Buckets["w"].Value())
 	}
 	if acc.Buckets["q"].Value() != 5 {
-		t.Errorf("Expected q bucket to have a value %v, but got %v", 5, acc.Buckets["w"].Value())
+		t.Errorf("Expected q bucket to have a value %v, but got %v", 5, acc.Buckets["q"].Value())
 	}
 }
