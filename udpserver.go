@@ -49,13 +49,13 @@ func (s *Server) runUDPServer(conn *net.UDPConn) {
 				permit: func() {
 					_, err := conn.WriteToUDP([]byte("p"), addr)
 					if err != nil {
-						slog.Error("UDP failed to send permit response back", "addr", addr, "error", err)
+						slog.Error("UDP failed to send permit response", "addr", addr, "error", err)
 					}
 				},
 				deny: func() {
 					_, err := conn.WriteToUDP([]byte("d"), addr)
 					if err != nil {
-						slog.Error("UDP failed to send deny response back", "addr", addr, "error", err)
+						slog.Error("UDP failed to send deny response", "addr", addr, "error", err)
 					}
 				},
 			}
