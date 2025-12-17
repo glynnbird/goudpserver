@@ -13,8 +13,7 @@ const refreshInterval = 1 * time.Second
 // port it listens on and a map of Account structs, one for each user account
 type Server struct {
 	port     int
-	accounts map[string]Account
-	mu       sync.RWMutex
+	accounts *AccountMap
 	wg       sync.WaitGroup
 }
 
@@ -28,10 +27,10 @@ type ReplyHandler struct {
 
 // NewServer creates a new server struct, given the port
 func NewServer(port int) *Server {
-	accountsMap := make(map[string]Account)
+	accountsPtr := NewAccountMap()
 	server := Server{
 		port:     port,
-		accounts: accountsMap,
+		accounts: accountsPtr,
 	}
 	return &server
 }
@@ -45,16 +44,10 @@ func (s *Server) Run() {
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-
 		ticker := time.NewTicker(refreshInterval)
 		defer ticker.Stop()
-
 		for range ticker.C {
-			s.mu.RLock()
-			for _, acc := range s.accounts {
-				acc.reset()
-			}
-			s.mu.RUnlock()
+			s.accounts.Reset()
 		}
 	}()
 
@@ -100,22 +93,7 @@ func (s *Server) handleMessage(protocol string, str string, replyer ReplyHandler
 	}
 
 	// locate the account in the sync map (or create a new one if it's not there already)
-	s.mu.RLock()
-	acc, ok := s.accounts[message.accountName]
-	s.mu.RUnlock()
-	// if the key isn't in our map, create a new Account
-	if !ok {
-		s.mu.Lock()
-		// this is to solve a race between two goroutines trying to create the same map key
-		if otherAcc, exists := s.accounts[message.accountName]; !exists {
-			acc = NewAccount(message.accountName)
-			s.accounts[message.accountName] = acc
-		} else {
-			// the other goroutine beat us to it
-			acc = otherAcc
-		}
-		s.mu.Unlock()
-	}
+	acc := s.accounts.LoadOrStore(message.accountName)
 
 	// get a decision on whether there is enough Value left in the bucket to decrement it by "inc"
 	permitted = acc.Buckets[message.class].dec(message.inc, message.capacity)
