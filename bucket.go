@@ -1,16 +1,18 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"sync"
 )
 
-// Bucket is a "leaky bucket" it has a Capacity (it's maximum size) and a Value (
-// it's current size). It is "reset" periodically, which puts the Value equal to the Capacity.
+// Bucket is a "leaky bucket" it has a capacity (it's maximum size) and a calue (
+// it's current size). It is "reset" periodically, which puts the value equal to the capacity.
 // When the Bucket is "dec"'d the Value is decremented by another number - in this operation,
 // there is an opportunity to first set or subsequently set the bucket's capacity too.
 type Bucket struct {
-	Value    int `json:"value"`
-	Capacity int `json:"capacity"`
+	value    int
+	capacity int
 	mu       sync.Mutex
 }
 
@@ -28,15 +30,15 @@ func (b *Bucket) dec(by int, capacity int) bool {
 	if by <= 0 || capacity <= 0 {
 		return false
 	}
-	if b.Capacity == 0 {
-		b.Value = capacity
+	if b.capacity == 0 {
+		b.value = capacity
 	}
-	b.Capacity = capacity
+	b.capacity = capacity
 
 	// if there is sufficient Value left in the bucket
-	if b.Value >= by {
+	if b.value >= by {
 		// remove Value from the bucket and indicated success
-		b.Value -= by
+		b.value -= by
 		return true
 	}
 	// otherwise fail
@@ -47,5 +49,43 @@ func (b *Bucket) dec(by int, capacity int) bool {
 func (b *Bucket) reset() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.Value = b.Capacity
+	b.value = b.capacity
+}
+
+// set sets the value and capacity of the bucket
+func (b *Bucket) set(value int, capacity int) error {
+	if value < 0 || capacity < 0 {
+		return errors.New("cannot accept negative value or capacity")
+	}
+	if value > capacity {
+		return errors.New("value cannot exceed capacity")
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.value = value
+	b.capacity = capacity
+	return nil
+}
+
+// Value returns the unexported value attribute
+func (b *Bucket) Value() int {
+	return b.value
+}
+
+// Capacity returns the unexported capacity attribute
+func (b *Bucket) Capacity() int {
+	return b.capacity
+}
+
+// MarshalJSON returns a JSON representation of the bucket's capacity and value
+func (b *Bucket) MarshalJSON() ([]byte, error) {
+	type Alias struct {
+		Value    int `json:"value"`
+		Capacity int `json:"capacity"`
+	}
+
+	return json.Marshal(Alias{
+		Value:    b.value,
+		Capacity: b.capacity,
+	})
 }
