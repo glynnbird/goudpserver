@@ -23,7 +23,7 @@ func (s *Server) listenTCPServer() (net.Listener, error) {
 
 // runTCPServer executes a TCP server. It takes an already-started network
 // listener. It accepts socket connections and sets up a go-routine per
-// socket to handle incoming messages. The sockets timeout after a period
+// socket to handle incoming messages. Each socket times out after a period
 // of inactivity.
 func (s *Server) runTCPServer(ln net.Listener) {
 	defer s.wg.Done()

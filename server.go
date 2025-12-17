@@ -105,14 +105,13 @@ func (s *Server) handleMessage(protocol string, str string, replyer ReplyHandler
 		if err != nil {
 			slog.Error("Error handling message", "protocol", protocol, "error", err)
 		} else {
-			slog.Info("Handled message", "protocol", protocol, "message", str, "permitted", permitted)
+			slog.Info("Message", "protocol", protocol, "message", str, "permitted", permitted)
 		}
 	}()
 
 	// parse the incoming message
 	message, err := parseMessage(str)
 	if err != nil {
-		str = "invalid"
 		replyer.deny()
 		return
 	}

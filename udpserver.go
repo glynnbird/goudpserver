@@ -41,7 +41,8 @@ func (s *Server) runUDPServer(conn *net.UDPConn) {
 		}
 
 		// clone buffer and send to goroutine to handle the message
-		data := append([]byte(nil), buffer[:n]...)
+		data := make([]byte, n)
+		copy(data, buffer[:n])
 		go func() {
 			// gives a means of replying back to the caller to handleMessage
 			replyHandler := ReplyHandler{
