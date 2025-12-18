@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // listenTCPServer creates a TCP listener on the server's port
@@ -28,6 +30,15 @@ func (s *Server) listenTCPServer() (net.Listener, error) {
 func (s *Server) runTCPServer(ln net.Listener) {
 	defer s.wg.Done()
 
+	// register the socketsGauge to count the number active sockets
+	socketsGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "goudpserver",
+		Subsystem: "tcp_server",
+		Name:      "num_sockets",
+		Help:      "Number of sockets open in the TCP server",
+	})
+	prometheus.MustRegister(socketsGauge)
+
 	for {
 		// accept TCP connection
 		conn, err := ln.Accept()
@@ -42,17 +53,24 @@ func (s *Server) runTCPServer(ln net.Listener) {
 
 		// one go routine per connection
 		go func() {
-			defer conn.Close()
+			defer func() {
+				socketsGauge.Dec()
+				conn.Close()
+			}()
+
+			// increment socket count
+			socketsGauge.Inc()
+
 			// time out the socket after 30 seconds of inactivity
 			idleTimeout := 30 * time.Second
 
 			// create line reader
 			reader := bufio.NewScanner(conn)
 			reader.Buffer(make([]byte, 0, 1024), 1024)
+			conn.SetDeadline(time.Now().Add(idleTimeout))
 
 			// read each line
 			for reader.Scan() {
-				conn.SetReadDeadline(time.Now().Add(idleTimeout))
 				line := reader.Text()
 				// gives a means of replying back to the caller to handleMessage
 				replyHandler := ReplyHandler{

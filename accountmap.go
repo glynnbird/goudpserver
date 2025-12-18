@@ -1,18 +1,31 @@
 package main
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 // AccountMap models a map of Account structs and a Mutex to ensure thread-safety
 type AccountMap struct {
-	accounts map[string]Account
-	mu       sync.RWMutex
+	accounts     map[string]Account
+	mu           sync.RWMutex
+	accountGauge prometheus.Gauge
 }
 
 // NewAccountMap creates a new AccountMap with an empty accounts map.
 func NewAccountMap() *AccountMap {
+	accountGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "goudpserver",
+		Subsystem: "account_map",
+		Name:      "num_keys",
+		Help:      "Number of entries in our AccountMap",
+	})
+	prometheus.MustRegister(accountGauge)
 	accounts := make(map[string]Account)
 	am := AccountMap{
-		accounts: accounts,
+		accounts:     accounts,
+		accountGauge: accountGauge,
 	}
 	return &am
 }
@@ -31,6 +44,7 @@ func (am *AccountMap) LoadOrStore(accountName string) Account {
 		if otherAcc, exists := am.accounts[accountName]; !exists {
 			acc = NewAccount(accountName)
 			am.accounts[accountName] = acc
+			am.accountGauge.Inc()
 		} else {
 			// the other goroutine beat us to it
 			acc = otherAcc

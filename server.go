@@ -6,6 +6,9 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 // refreshInterval is how frequently the account's buckets are refreshed (topped up)
@@ -14,9 +17,12 @@ const refreshInterval = 1 * time.Second
 // Server is a data structure that holds information about our UDP server, including which
 // port it listens on and a map of Account structs, one for each user account
 type Server struct {
-	port     int
-	accounts *AccountMap
-	wg       sync.WaitGroup
+	port              int
+	accounts          *AccountMap
+	wg                sync.WaitGroup
+	messagesProcessed *prometheus.CounterVec
+	messagesErrored   *prometheus.CounterVec
+	messagesHandled   *prometheus.CounterVec
 }
 
 // a ReplyHandler is a struct which has two functions that reply permit or deny back to the
@@ -29,10 +35,31 @@ type ReplyHandler struct {
 
 // NewServer creates a new server struct, given the port
 func NewServer(port int) *Server {
+	messagesProcessed := promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "goudpserver",
+		Subsystem: "messages",
+		Name:      "received",
+		Help:      "Total number of messages received",
+	}, []string{"protocol"})
+	messagesErrored := promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "goudpserver",
+		Subsystem: "messages",
+		Name:      "errored",
+		Help:      "Total number of messages errored",
+	}, []string{"reason"})
+	messagesHandled := promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "goudpserver",
+		Subsystem: "messages",
+		Name:      "handled",
+		Help:      "Total number of messages handled",
+	}, []string{"class", "permitted"})
 	accountsPtr := NewAccountMap()
 	server := Server{
-		port:     port,
-		accounts: accountsPtr,
+		port:              port,
+		accounts:          accountsPtr,
+		messagesProcessed: messagesProcessed,
+		messagesErrored:   messagesErrored,
+		messagesHandled:   messagesHandled,
 	}
 	return &server
 }
@@ -116,8 +143,10 @@ func (s *Server) handleMessage(protocol string, str string, replyer ReplyHandler
 	}()
 
 	// parse the incoming message
+	s.messagesProcessed.WithLabelValues(protocol).Inc()
 	message, err := parseMessage(str)
 	if err != nil {
+		s.messagesErrored.WithLabelValues(err.Error()).Inc()
 		replyer.deny()
 		return
 	}
@@ -130,8 +159,10 @@ func (s *Server) handleMessage(protocol string, str string, replyer ReplyHandler
 
 	// permit or deny reply
 	if permitted {
+		s.messagesHandled.WithLabelValues(message.class, "p").Inc()
 		replyer.permit()
 	} else {
+		s.messagesHandled.WithLabelValues(message.class, "d").Inc()
 		replyer.deny()
 	}
 }
