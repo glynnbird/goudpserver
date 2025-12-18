@@ -11,3 +11,5 @@ I've used it as a playground to try out:
 - terminating gracefully
 - thread safety
 - automated testing
+- prometheus metrics
+
