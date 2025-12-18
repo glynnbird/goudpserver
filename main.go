@@ -34,9 +34,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// start prometheus metrics
-	go RunMetrics(ctx)
-
 	// run the server
 	server := NewServer(port)
 	server.Run(ctx)

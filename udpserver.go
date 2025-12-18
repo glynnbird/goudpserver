@@ -29,24 +29,12 @@ func (s *Server) listenUDPServer() (*net.UDPConn, error) {
 func (s *Server) runUDPServer(conn *net.UDPConn) {
 	defer s.wg.Done()
 
-	// register the udpRequestDuration histogram to report on request handling performance
-	udpRequestDuration := prometheus.NewHistogram(
-		prometheus.HistogramOpts{
-			Namespace: "goudpserver",
-			Subsystem: "udp_server",
-			Name:      "request_duration_seconds",
-			Help:      "Time spent processing a UDP request.",
-			Buckets:   []float64{0.00001, 0.00002, 0.00003, 0.00004, 0.00005, 0.0001, 0.0002, 0.0003, 0.0004, 0.0005},
-		},
-	)
-	prometheus.MustRegister(udpRequestDuration)
-
 	// wait for messages of up to 128 bytes
 	buffer := make([]byte, 128)
 	for {
 
 		n, addr, err := conn.ReadFromUDP(buffer)
-		timer := prometheus.NewTimer(udpRequestDuration)
+		timer := prometheus.NewTimer(s.udpRequestDuration)
 		if err != nil {
 			if errors.Is(err, net.ErrClosed) {
 				slog.Info("UDP server closed")

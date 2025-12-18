@@ -30,26 +30,6 @@ func (s *Server) listenTCPServer() (net.Listener, error) {
 func (s *Server) runTCPServer(ln net.Listener) {
 	defer s.wg.Done()
 
-	// register the socketsGauge to count the number active sockets
-	socketsGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Namespace: "goudpserver",
-		Subsystem: "tcp_server",
-		Name:      "num_sockets",
-		Help:      "Number of sockets open in the TCP server",
-	})
-
-	// register the tcpRequestDuration histogram to report on request handling performance
-	tcpRequestDuration := prometheus.NewHistogram(
-		prometheus.HistogramOpts{
-			Namespace: "goudpserver",
-			Subsystem: "tcp_server",
-			Name:      "request_duration_seconds",
-			Help:      "Time spent processing a TCP request.",
-			Buckets:   []float64{0.00001, 0.00002, 0.00003, 0.00004, 0.00005, 0.0001, 0.0002, 0.0003, 0.0004, 0.0005},
-		},
-	)
-	prometheus.MustRegister(socketsGauge, tcpRequestDuration)
-
 	for {
 		// accept TCP connection
 		conn, err := ln.Accept()
@@ -65,10 +45,10 @@ func (s *Server) runTCPServer(ln net.Listener) {
 		// one go routine per connection
 		go func() {
 			defer conn.Close()
-			defer socketsGauge.Dec()
+			defer s.socketsGauge.Dec()
 
 			// increment socket count
-			socketsGauge.Inc()
+			s.socketsGauge.Inc()
 
 			// time out the socket after 30 seconds of inactivity
 			idleTimeout := 30 * time.Second
@@ -80,7 +60,7 @@ func (s *Server) runTCPServer(ln net.Listener) {
 
 			// read each line
 			for reader.Scan() {
-				timer := prometheus.NewTimer(tcpRequestDuration)
+				timer := prometheus.NewTimer(s.tcpRequestDuration)
 				conn.SetReadDeadline(time.Now().Add(idleTimeout))
 				line := reader.Text()
 				// gives a means of replying back to the caller to handleMessage

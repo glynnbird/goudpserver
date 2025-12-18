@@ -17,12 +17,15 @@ const refreshInterval = 1 * time.Second
 // Server is a data structure that holds information about our UDP server, including which
 // port it listens on and a map of Account structs, one for each user account
 type Server struct {
-	port              int
-	accounts          *AccountMap
-	wg                sync.WaitGroup
-	messagesProcessed *prometheus.CounterVec
-	messagesErrored   *prometheus.CounterVec
-	messagesHandled   *prometheus.CounterVec
+	port               int
+	accounts           *AccountMap
+	wg                 sync.WaitGroup
+	messagesProcessed  *prometheus.CounterVec
+	messagesErrored    *prometheus.CounterVec
+	messagesHandled    *prometheus.CounterVec
+	udpRequestDuration prometheus.Histogram
+	tcpRequestDuration prometheus.Histogram
+	socketsGauge       prometheus.Gauge
 }
 
 // a ReplyHandler is a struct which has two functions that reply permit or deny back to the
@@ -89,8 +92,15 @@ func (s *Server) Run(ctx context.Context) {
 	var udpConn *net.UDPConn
 	var tcpListener net.Listener
 
-	// we have three goroutines to wait for: TCP/UDP servers and the reset timer
-	s.wg.Add(3)
+	// we have four goroutines to wait for:
+	//   - TCP server
+	//   - UDP server
+	//   - reset timer
+	//   - prometheus metrics server
+	s.wg.Add(4)
+
+	// start prometheus metrics
+	go s.runMetrics(ctx)
 
 	// run the UDP server
 	go func() {
