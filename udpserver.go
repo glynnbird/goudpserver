@@ -29,7 +29,7 @@ func (s *Server) listenUDPServer() (*net.UDPConn, error) {
 func (s *Server) runUDPServer(conn *net.UDPConn) {
 	defer s.wg.Done()
 
-	// register the tcpRequestDuration histogram to report on request handling performance
+	// register the udpRequestDuration histogram to report on request handling performance
 	udpRequestDuration := prometheus.NewHistogram(
 		prometheus.HistogramOpts{
 			Namespace: "goudpserver",

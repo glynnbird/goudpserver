@@ -64,8 +64,8 @@ func (s *Server) runTCPServer(ln net.Listener) {
 
 		// one go routine per connection
 		go func() {
-			defer socketsGauge.Dec()
 			defer conn.Close()
+			defer socketsGauge.Dec()
 
 			// increment socket count
 			socketsGauge.Inc()
