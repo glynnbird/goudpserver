@@ -27,7 +27,6 @@ func main() {
 	}
 
 	// convert to string to integer
-	slog.Info("Metrics")
 	slog.Info("Listening on", "port", portStr)
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
@@ -36,7 +35,6 @@ func main() {
 	}
 
 	// start prometheus metrics
-	slog.Info("Metrics")
 	go RunMetrics(ctx)
 
 	// run the server

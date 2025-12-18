@@ -71,6 +71,7 @@ func (s *Server) runTCPServer(ln net.Listener) {
 
 			// read each line
 			for reader.Scan() {
+				conn.SetReadDeadline(time.Now().Add(idleTimeout))
 				line := reader.Text()
 				// gives a means of replying back to the caller to handleMessage
 				replyHandler := ReplyHandler{
