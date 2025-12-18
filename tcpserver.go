@@ -37,7 +37,18 @@ func (s *Server) runTCPServer(ln net.Listener) {
 		Name:      "num_sockets",
 		Help:      "Number of sockets open in the TCP server",
 	})
-	prometheus.MustRegister(socketsGauge)
+
+	// register the tcpRequestDuration histogram to report on request handling performance
+	tcpRequestDuration := prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Namespace: "goudpserver",
+			Subsystem: "tcp_server",
+			Name:      "request_duration_seconds",
+			Help:      "Time spent processing a TCP request.",
+			Buckets:   []float64{0.00001, 0.00002, 0.00003, 0.00004, 0.00005, 0.0001, 0.0002, 0.0003, 0.0004, 0.0005},
+		},
+	)
+	prometheus.MustRegister(socketsGauge, tcpRequestDuration)
 
 	for {
 		// accept TCP connection
@@ -53,10 +64,8 @@ func (s *Server) runTCPServer(ln net.Listener) {
 
 		// one go routine per connection
 		go func() {
-			defer func() {
-				socketsGauge.Dec()
-				conn.Close()
-			}()
+			defer socketsGauge.Dec()
+			defer conn.Close()
 
 			// increment socket count
 			socketsGauge.Inc()
@@ -71,18 +80,21 @@ func (s *Server) runTCPServer(ln net.Listener) {
 
 			// read each line
 			for reader.Scan() {
+				timer := prometheus.NewTimer(tcpRequestDuration)
 				conn.SetReadDeadline(time.Now().Add(idleTimeout))
 				line := reader.Text()
 				// gives a means of replying back to the caller to handleMessage
 				replyHandler := ReplyHandler{
 					permit: func() {
 						_, err := conn.Write([]byte("p\n"))
+						timer.ObserveDuration()
 						if err != nil {
 							slog.Error("TCP failed to send permit response", "error", err)
 						}
 					},
 					deny: func() {
 						_, err := conn.Write([]byte("d\n"))
+						timer.ObserveDuration()
 						if err != nil {
 							slog.Error("TCP failed to send deny response", "error", err)
 						}
