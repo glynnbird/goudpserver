@@ -34,8 +34,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	// initialise metrics
+	met := NewMetrics()
+
 	// run the server
-	server := NewServer(port)
+	server := NewServer(port, met)
 	server.Run(ctx)
 	slog.Info("shutdown complete")
 }

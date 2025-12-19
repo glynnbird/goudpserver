@@ -45,10 +45,10 @@ func (s *Server) runTCPServer(ln net.Listener) {
 		// one go routine per connection
 		go func() {
 			defer conn.Close()
-			defer s.socketsGauge.Dec()
+			defer s.met.socketsGauge.Dec()
 
 			// increment socket count
-			s.socketsGauge.Inc()
+			s.met.socketsGauge.Inc()
 
 			// time out the socket after 30 seconds of inactivity
 			idleTimeout := 30 * time.Second
@@ -60,7 +60,7 @@ func (s *Server) runTCPServer(ln net.Listener) {
 
 			// read each line
 			for reader.Scan() {
-				timer := prometheus.NewTimer(s.tcpRequestDuration)
+				timer := prometheus.NewTimer(s.met.tcpRequestDuration)
 				conn.SetReadDeadline(time.Now().Add(idleTimeout))
 				line := reader.Text()
 				// gives a means of replying back to the caller to handleMessage

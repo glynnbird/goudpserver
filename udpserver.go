@@ -34,7 +34,7 @@ func (s *Server) runUDPServer(conn *net.UDPConn) {
 	for {
 
 		n, addr, err := conn.ReadFromUDP(buffer)
-		timer := prometheus.NewTimer(s.udpRequestDuration)
+		timer := prometheus.NewTimer(s.met.udpRequestDuration)
 		if err != nil {
 			if errors.Is(err, net.ErrClosed) {
 				slog.Info("UDP server closed")

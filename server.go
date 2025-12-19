@@ -6,9 +6,6 @@ import (
 	"net"
 	"sync"
 	"time"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 // refreshInterval is how frequently the account's buckets are refreshed (topped up)
@@ -17,15 +14,10 @@ const refreshInterval = 1 * time.Second
 // Server is a data structure that holds information about our UDP server, including which
 // port it listens on and a map of Account structs, one for each user account
 type Server struct {
-	port               int
-	accounts           *AccountMap
-	wg                 sync.WaitGroup
-	messagesProcessed  *prometheus.CounterVec
-	messagesErrored    *prometheus.CounterVec
-	messagesHandled    *prometheus.CounterVec
-	udpRequestDuration prometheus.Histogram
-	tcpRequestDuration prometheus.Histogram
-	socketsGauge       prometheus.Gauge
+	port     int
+	accounts *AccountMap
+	wg       sync.WaitGroup
+	met      *metrics
 }
 
 // a ReplyHandler is a struct which has two functions that reply permit or deny back to the
@@ -37,32 +29,13 @@ type ReplyHandler struct {
 }
 
 // NewServer creates a new server struct, given the port
-func NewServer(port int) *Server {
-	messagesProcessed := promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "goudpserver",
-		Subsystem: "messages",
-		Name:      "received",
-		Help:      "Total number of messages received",
-	}, []string{"protocol"})
-	messagesErrored := promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "goudpserver",
-		Subsystem: "messages",
-		Name:      "errored",
-		Help:      "Total number of messages errored",
-	}, []string{"reason"})
-	messagesHandled := promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "goudpserver",
-		Subsystem: "messages",
-		Name:      "handled",
-		Help:      "Total number of messages handled",
-	}, []string{"class", "permitted"})
+func NewServer(port int, met *metrics) *Server {
+
 	accountsPtr := NewAccountMap()
 	server := Server{
-		port:              port,
-		accounts:          accountsPtr,
-		messagesProcessed: messagesProcessed,
-		messagesErrored:   messagesErrored,
-		messagesHandled:   messagesHandled,
+		port:     port,
+		accounts: accountsPtr,
+		met:      met,
 	}
 	return &server
 }
@@ -153,26 +126,29 @@ func (s *Server) handleMessage(protocol string, str string, replyer ReplyHandler
 	}()
 
 	// parse the incoming message
-	s.messagesProcessed.WithLabelValues(protocol).Inc()
+	s.met.messagesProcessed.WithLabelValues(protocol).Inc()
 	message, err := parseMessage(str)
 	if err != nil {
-		s.messagesErrored.WithLabelValues(err.Error()).Inc()
+		s.met.messagesErrored.WithLabelValues(err.Error()).Inc()
 		replyer.deny()
 		return
 	}
 
 	// locate the account in the sync map (or create a new one if it's not there already)
-	acc := s.accounts.LoadOrStore(message.accountName)
+	acc, newAccountCreated := s.accounts.LoadOrStore(message.accountName)
+	if newAccountCreated {
+		s.met.accountGauge.Inc()
+	}
 
 	// get a decision on whether there is enough Value left in the bucket to decrement it by "inc"
 	permitted = acc.Buckets[message.class].dec(message.inc, message.capacity)
 
 	// permit or deny reply
 	if permitted {
-		s.messagesHandled.WithLabelValues(message.class, "p").Inc()
+		s.met.messagesHandled.WithLabelValues(message.class, "p").Inc()
 		replyer.permit()
 	} else {
-		s.messagesHandled.WithLabelValues(message.class, "d").Inc()
+		s.met.messagesHandled.WithLabelValues(message.class, "d").Inc()
 		replyer.deny()
 	}
 }

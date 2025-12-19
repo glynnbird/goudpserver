@@ -8,7 +8,8 @@ import (
 // setup tests
 func Test_server_new(t *testing.T) {
 	port := 8888
-	server := NewServer(port)
+	met := NewMetrics()
+	server := NewServer(port, met)
 	if server.port != port {
 		t.Errorf("Expected server port to be %v, got %v", port, server.port)
 	}
@@ -19,7 +20,8 @@ func Test_server_new(t *testing.T) {
 
 func Test_server_permit_deny_count(t *testing.T) {
 	port := 8888
-	server := NewServer(port)
+	met := NewMetrics()
+	server := NewServer(port, met)
 	permitCount := 0
 	denyCount := 0
 	replyHandler := ReplyHandler{
@@ -64,7 +66,8 @@ func Test_server_permit_deny_count(t *testing.T) {
 
 func Test_server_permit_deny_count_parallel(t *testing.T) {
 	port := 8888
-	server := NewServer(port)
+	met := NewMetrics()
+	server := NewServer(port, met)
 	permitCount := 0
 	denyCount := 0
 	var muPermit sync.Mutex
