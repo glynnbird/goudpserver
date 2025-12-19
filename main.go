@@ -13,6 +13,7 @@ const defaultPort string = "8081"
 
 func main() {
 
+	// context used to close goroutines on Ctrl-C or kill
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
 		os.Interrupt,    // Ctrl+C

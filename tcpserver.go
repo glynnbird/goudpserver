@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -27,8 +28,15 @@ func (s *Server) listenTCPServer() (net.Listener, error) {
 // listener. It accepts socket connections and sets up a go-routine per
 // socket to handle incoming messages. Each socket times out after a period
 // of inactivity.
-func (s *Server) runTCPServer(ln net.Listener) {
+func (s *Server) runTCPServer(ctx context.Context, ln net.Listener) {
 	defer s.wg.Done()
+
+	// Stop accepting new connections when context is canceled
+	go func() {
+		<-ctx.Done()
+		slog.Info("Closing TCP server")
+		ln.Close()
+	}()
 
 	for {
 		// accept TCP connection

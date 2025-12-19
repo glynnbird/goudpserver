@@ -70,41 +70,36 @@ func (s *Server) Run(ctx context.Context) {
 	//   - UDP server
 	//   - reset timer
 	//   - prometheus metrics server
-	s.wg.Add(4)
 
 	// start prometheus metrics
+	s.wg.Add(1)
 	go s.runMetrics(ctx)
 
 	// run the UDP server
+	s.wg.Add(1)
 	go func() {
 		var err error
 		udpConn, err = s.listenUDPServer()
 		if err != nil {
 			slog.Error("UDP listen error", "error", err)
 		}
-		s.runUDPServer(udpConn)
+		s.runUDPServer(ctx, udpConn)
 	}()
 
 	// run the TCP server
+	s.wg.Add(1)
 	go func() {
 		var err error
 		tcpListener, err = s.listenTCPServer()
 		if err != nil {
 			slog.Error("TCP listen error", "error", err)
 		}
-		s.runTCPServer(tcpListener)
+		s.runTCPServer(ctx, tcpListener)
 	}()
 
 	// reset the accounts every second
+	s.wg.Add(1)
 	go s.RunTimer(ctx)
-
-	// wait until the app indicates it wants to terminate
-	<-ctx.Done()
-
-	// close the servers
-	slog.Info("Terminating")
-	tcpListener.Close()
-	udpConn.Close()
 
 	// wait for all goroutines to finish
 	s.wg.Wait()

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -26,8 +27,15 @@ func (s *Server) listenUDPServer() (*net.UDPConn, error) {
 
 // runUDPServer executes a UDP server. It starts listening on the specified port,
 // dispatching incoming messages to its own goroutine.
-func (s *Server) runUDPServer(conn *net.UDPConn) {
+func (s *Server) runUDPServer(ctx context.Context, conn *net.UDPConn) {
 	defer s.wg.Done()
+
+	// Stop waiting for incoming messages when the context is done
+	go func() {
+		<-ctx.Done()
+		slog.Info("Closing UDP server")
+		conn.Close()
+	}()
 
 	// wait for messages of up to 128 bytes
 	buffer := make([]byte, 128)
