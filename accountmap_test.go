@@ -11,9 +11,21 @@ func Test_account_map_new(t *testing.T) {
 
 func Test_account_map_LoadOrStore_add_missing(t *testing.T) {
 	am := NewAccountMap()
-	am.LoadOrStore("bob")
+	_, newAccountCreated := am.LoadOrStore("bob")
 	if len(am.accounts) != 1 {
 		t.Errorf("Expected accounts map to have length of 1, got %v", len(am.accounts))
+	}
+	if newAccountCreated == false {
+		t.Errorf("Expected newAccountCreated to be true, got %v", newAccountCreated)
+	}
+
+	// repeat, should get false for newAccountCreated
+	_, newAccountCreated = am.LoadOrStore("bob")
+	if len(am.accounts) != 1 {
+		t.Errorf("Expected accounts map to have length of 1, got %v", len(am.accounts))
+	}
+	if newAccountCreated == true {
+		t.Errorf("Expected newAccountCreated to be false, got %v", newAccountCreated)
 	}
 }
 
