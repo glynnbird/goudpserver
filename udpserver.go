@@ -55,27 +55,18 @@ func (s *Server) runUDPServer(ctx context.Context, conn *net.UDPConn) {
 		// clone buffer and send to goroutine to handle the message
 		data := make([]byte, n)
 		copy(data, buffer[:n])
-		go func(t *prometheus.Timer) {
-			// gives a means of replying back to the caller to handleMessage
-			replyHandler := ReplyHandler{
-				permit: func() {
-					_, err := conn.WriteToUDP([]byte("p"), addr)
-					t.ObserveDuration()
-					if err != nil {
-						slog.Error("UDP failed to send permit response", "addr", addr, "error", err)
-					}
-				},
-				deny: func() {
-					_, err := conn.WriteToUDP([]byte("d"), addr)
-					t.ObserveDuration()
-					if err != nil {
-						slog.Error("UDP failed to send deny response", "addr", addr, "error", err)
-					}
-				},
-			}
-
+		go func(a *net.UDPAddr, t *prometheus.Timer) {
 			// parse the message and reply back to the caller
-			s.handleMessage("UDP", strings.TrimSpace(string(data)), replyHandler)
-		}(timer)
+			permitted := s.handleMessage("UDP", strings.TrimSpace(string(data)))
+			response := "p"
+			if !permitted {
+				response = "d"
+			}
+			_, err := conn.WriteToUDP([]byte(response), a)
+			if err != nil {
+				slog.Error("UDP failed to send response", "addr", a, "error", err)
+			}
+			t.ObserveDuration()
+		}(addr, timer)
 	}
 }

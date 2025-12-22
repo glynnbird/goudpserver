@@ -24,19 +24,27 @@ func Test_server_permit_deny_count(t *testing.T) {
 	server := NewServer(port, met)
 	permitCount := 0
 	denyCount := 0
-	replyHandler := ReplyHandler{
-		permit: func() {
-			permitCount++
-		},
-		deny: func() {
-			denyCount++
-		},
-	}
+	var permitted bool
 	// try 2000 lookups/writes/queries for a bucket with a capacity of 10000
 	for i := 0; i < 2000; i++ {
-		server.handleMessage("test", "gb,l,1000,1", replyHandler)
-		server.handleMessage("test", "gb,w,1000,1", replyHandler)
-		server.handleMessage("test", "gb,q,1000,1", replyHandler)
+		permitted = server.handleMessage("test", "gb,l,1000,1")
+		if permitted {
+			permitCount++
+		} else {
+			denyCount++
+		}
+		permitted = server.handleMessage("test", "gb,w,1000,1")
+		if permitted {
+			permitCount++
+		} else {
+			denyCount++
+		}
+		permitted = server.handleMessage("test", "gb,q,1000,1")
+		if permitted {
+			permitCount++
+		} else {
+			denyCount++
+		}
 	}
 	if permitCount != 3000 {
 		t.Errorf("Expected permit count to be %v, got %v", 1000, permitCount)
@@ -52,9 +60,24 @@ func Test_server_permit_deny_count(t *testing.T) {
 
 	// try 2000 writes for a bucket with a capacity of 10000
 	for i := 0; i < 2000; i++ {
-		server.handleMessage("test", "gb,l,1000,1", replyHandler)
-		server.handleMessage("test", "gb,w,1000,1", replyHandler)
-		server.handleMessage("test", "gb,q,1000,1", replyHandler)
+		permitted = server.handleMessage("test", "gb,l,1000,1")
+		if permitted {
+			permitCount++
+		} else {
+			denyCount++
+		}
+		permitted = server.handleMessage("test", "gb,w,1000,1")
+		if permitted {
+			permitCount++
+		} else {
+			denyCount++
+		}
+		permitted = server.handleMessage("test", "gb,q,1000,1")
+		if permitted {
+			permitCount++
+		} else {
+			denyCount++
+		}
 	}
 	if permitCount != 3000 {
 		t.Errorf("Expected permit count to be %v, got %v", 1000, permitCount)
@@ -72,57 +95,29 @@ func Test_server_permit_deny_count_parallel(t *testing.T) {
 	denyCount := 0
 	var muPermit sync.Mutex
 	var muDeny sync.Mutex
-	replyHandler := ReplyHandler{
-		permit: func() {
-			muPermit.Lock()
-			defer muPermit.Unlock()
-			permitCount++
-		},
-		deny: func() {
-			muDeny.Lock()
-			defer muDeny.Unlock()
-			denyCount++
-		},
-	}
-
 	var wg sync.WaitGroup
 	wg.Add(6)
-	go func() {
+	f := func() {
 		defer wg.Done()
 		for i := 0; i < 25000; i++ {
-			server.handleMessage("test", "gb,l,50000,1", replyHandler)
+			permitted := server.handleMessage("test", "gb,l,50000,1")
+			if permitted {
+				muPermit.Lock()
+				permitCount++
+				muPermit.Unlock()
+			} else {
+				muDeny.Lock()
+				denyCount++
+				muDeny.Unlock()
+			}
 		}
-	}()
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 25000; i++ {
-			server.handleMessage("test", "gb,l,50000,1", replyHandler)
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 25000; i++ {
-			server.handleMessage("test", "gb,l,50000,1", replyHandler)
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 25000; i++ {
-			server.handleMessage("test", "gb,l,50000,1", replyHandler)
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 25000; i++ {
-			server.handleMessage("test", "gb,l,50000,1", replyHandler)
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 25000; i++ {
-			server.handleMessage("test", "gb,l,50000,1", replyHandler)
-		}
-	}()
+	}
+	go f()
+	go f()
+	go f()
+	go f()
+	go f()
+	go f()
 	wg.Wait()
 
 	if permitCount != 50000 {

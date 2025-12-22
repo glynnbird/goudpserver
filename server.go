@@ -20,14 +20,6 @@ type Server struct {
 	met      *metrics
 }
 
-// a ReplyHandler is a struct which has two functions that reply permit or deny back to the
-// caller. Passing a ReplyHandler to a goroutine saves having to pass connection and address
-// pointers around.
-type ReplyHandler struct {
-	permit func()
-	deny   func()
-}
-
 // NewServer creates a new server struct, given the port
 func NewServer(port int, met *metrics) *Server {
 
@@ -107,26 +99,17 @@ func (s *Server) Run(ctx context.Context) {
 }
 
 // handle is run as a goroutine to handle a single incoming message
-func (s *Server) handleMessage(protocol string, str string, replyer ReplyHandler) {
+func (s *Server) handleMessage(protocol string, str string) bool {
 	permitted := false
 	var err error
-
-	// deferred logging
-	defer func() {
-		if err != nil {
-			slog.Error("Error handling message", "protocol", protocol, "error", err)
-		} else {
-			slog.Info("Message", "protocol", protocol, "message", str, "permitted", permitted)
-		}
-	}()
 
 	// parse the incoming message
 	s.met.messagesProcessed.WithLabelValues(protocol).Inc()
 	message, err := parseMessage(str)
 	if err != nil {
 		s.met.messagesErrored.WithLabelValues(err.Error()).Inc()
-		replyer.deny()
-		return
+		slog.Error("Error handling message", "protocol", protocol, "error", err)
+		return false
 	}
 
 	// locate the account in the sync map (or create a new one if it's not there already)
@@ -139,11 +122,11 @@ func (s *Server) handleMessage(protocol string, str string, replyer ReplyHandler
 	permitted = acc.Buckets[message.class].dec(message.inc, message.capacity)
 
 	// permit or deny reply
+	slog.Info("Message", "protocol", protocol, "message", str, "permitted", permitted)
 	if permitted {
 		s.met.messagesHandled.WithLabelValues(message.class, "p").Inc()
-		replyer.permit()
 	} else {
 		s.met.messagesHandled.WithLabelValues(message.class, "d").Inc()
-		replyer.deny()
 	}
+	return permitted
 }
