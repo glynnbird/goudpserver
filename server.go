@@ -11,6 +11,10 @@ import (
 // refreshInterval is how frequently the account's buckets are refreshed (topped up)
 const refreshInterval = 1 * time.Second
 
+// responses
+const permitResponse = "p"
+const denyResponse = "d"
+
 // Server is a data structure that holds information about our UDP server, including which
 // port it listens on and a map of Account structs, one for each user account
 type Server struct {
@@ -99,7 +103,7 @@ func (s *Server) Run(ctx context.Context) {
 }
 
 // handle is run as a goroutine to handle a single incoming message
-func (s *Server) handleMessage(protocol string, str string) bool {
+func (s *Server) handleMessage(protocol string, str string) string {
 	permitted := false
 	var err error
 
@@ -109,7 +113,7 @@ func (s *Server) handleMessage(protocol string, str string) bool {
 	if err != nil {
 		s.met.messagesErrored.WithLabelValues(err.Error()).Inc()
 		slog.Error("Error handling message", "protocol", protocol, "error", err)
-		return false
+		return denyResponse
 	}
 
 	// locate the account in the sync map (or create a new one if it's not there already)
@@ -124,9 +128,10 @@ func (s *Server) handleMessage(protocol string, str string) bool {
 	// permit or deny reply
 	slog.Info("Message", "protocol", protocol, "message", str, "permitted", permitted)
 	if permitted {
-		s.met.messagesHandled.WithLabelValues(message.class, "p").Inc()
+		s.met.messagesHandled.WithLabelValues(message.class, permitResponse).Inc()
+		return permitResponse
 	} else {
-		s.met.messagesHandled.WithLabelValues(message.class, "d").Inc()
+		s.met.messagesHandled.WithLabelValues(message.class, denyResponse).Inc()
+		return denyResponse
 	}
-	return permitted
 }

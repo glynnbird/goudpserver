@@ -57,11 +57,7 @@ func (s *Server) runUDPServer(ctx context.Context, conn *net.UDPConn) {
 		copy(data, buffer[:n])
 		go func(a *net.UDPAddr, t *prometheus.Timer) {
 			// parse the message and reply back to the caller
-			permitted := s.handleMessage("UDP", strings.TrimSpace(string(data)))
-			response := "p"
-			if !permitted {
-				response = "d"
-			}
+			response := s.handleMessage("UDP", strings.TrimSpace(string(data)))
 			_, err := conn.WriteToUDP([]byte(response), a)
 			if err != nil {
 				slog.Error("UDP failed to send response", "addr", a, "error", err)

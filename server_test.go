@@ -24,23 +24,23 @@ func Test_server_permit_deny_count(t *testing.T) {
 	server := NewServer(port, met)
 	permitCount := 0
 	denyCount := 0
-	var permitted bool
+	var response string
 	// try 2000 lookups/writes/queries for a bucket with a capacity of 10000
 	for i := 0; i < 2000; i++ {
-		permitted = server.handleMessage("test", "gb,l,1000,1")
-		if permitted {
+		response = server.handleMessage("test", "gb,l,1000,1")
+		if response == permitResponse {
 			permitCount++
 		} else {
 			denyCount++
 		}
-		permitted = server.handleMessage("test", "gb,w,1000,1")
-		if permitted {
+		response = server.handleMessage("test", "gb,w,1000,1")
+		if response == permitResponse {
 			permitCount++
 		} else {
 			denyCount++
 		}
-		permitted = server.handleMessage("test", "gb,q,1000,1")
-		if permitted {
+		response = server.handleMessage("test", "gb,q,1000,1")
+		if response == permitResponse {
 			permitCount++
 		} else {
 			denyCount++
@@ -60,20 +60,20 @@ func Test_server_permit_deny_count(t *testing.T) {
 
 	// try 2000 writes for a bucket with a capacity of 10000
 	for i := 0; i < 2000; i++ {
-		permitted = server.handleMessage("test", "gb,l,1000,1")
-		if permitted {
+		response = server.handleMessage("test", "gb,l,1000,1")
+		if response == permitResponse {
 			permitCount++
 		} else {
 			denyCount++
 		}
-		permitted = server.handleMessage("test", "gb,w,1000,1")
-		if permitted {
+		response = server.handleMessage("test", "gb,w,1000,1")
+		if response == permitResponse {
 			permitCount++
 		} else {
 			denyCount++
 		}
-		permitted = server.handleMessage("test", "gb,q,1000,1")
-		if permitted {
+		response = server.handleMessage("test", "gb,q,1000,1")
+		if response == permitResponse {
 			permitCount++
 		} else {
 			denyCount++
@@ -100,8 +100,8 @@ func Test_server_permit_deny_count_parallel(t *testing.T) {
 	f := func() {
 		defer wg.Done()
 		for i := 0; i < 25000; i++ {
-			permitted := server.handleMessage("test", "gb,l,50000,1")
-			if permitted {
+			response := server.handleMessage("test", "gb,l,50000,1")
+			if response == permitResponse {
 				muPermit.Lock()
 				permitCount++
 				muPermit.Unlock()

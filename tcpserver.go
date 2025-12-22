@@ -73,11 +73,7 @@ func (s *Server) runTCPServer(ctx context.Context, ln net.Listener) {
 				line := reader.Text()
 
 				// parse the message and reply back to the caller
-				permitted := s.handleMessage("TCP", line)
-				response := "p"
-				if !permitted {
-					response = "d"
-				}
+				response := s.handleMessage("TCP", line)
 				_, err := conn.Write([]byte(response + "\n"))
 				timer.ObserveDuration()
 				if err != nil {
