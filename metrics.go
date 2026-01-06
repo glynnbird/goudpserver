@@ -23,7 +23,7 @@ var (
 	metricsSingleton *metrics
 )
 
-// NewMetrics creates a metrics struct and returns a point to a "singleton", to prevent
+// NewMetrics creates a metrics struct and returns a pointer to a "singleton", to prevent
 // multiple invocations re-registering metrics.
 func NewMetrics() *metrics {
 
